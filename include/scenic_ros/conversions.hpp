@@ -18,6 +18,7 @@
 #include <std_msgs/msg/header.hpp>
 #include <builtin_interfaces/msg/time.hpp>
 #include <Eigen/Dense>
+#include <opencv2/opencv.hpp>
 
 #include "glider/core/odometry.hpp"
 #include "glider/core/odometry_with_covariance.hpp"

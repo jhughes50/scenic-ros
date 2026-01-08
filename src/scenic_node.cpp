@@ -9,7 +9,7 @@
 
 using namespace ScenicROS;
 
-ScenicNode::ScenicNode(const rclcpp::NodeOptions& options)
+ScenicNode::ScenicNode(const rclcpp::NodeOptions& options) : Node("scenic_node")
 {
     // Declare ROS parameters
     declare_parameter("publishers.rate", 10.0);
@@ -32,10 +32,41 @@ ScenicNode::ScenicNode(const rclcpp::NodeOptions& options)
 
     bool use_odom = this->get_parameter("subscribers.use_odom").as_bool();
     
-    std::string path = this->get_parameter("path").as_string();
+    std::string glider_path = this->get_parameter("glider_path").as_string();
 
     // initialize glider
-    glider_ = std::make_unique<Glider::Glider>(path);
+    glider_ = std::make_unique<Glider::Glider>(glider_path);
+    // initialize scenic
+    scenic_ = std::make_unique<Scenic::Scenic>(10, "/home/jason/clipper/models", "/home/jason/clipper/config");
+    // TODO initialize scenic as a unique ptr
+    current_state_ = Glider::OdometryWithCovariance::Uninitialized();
+
+    imu_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+    gps_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+    img_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
+    // initialize pubs and subscribers
+    auto imu_sub_options = rclcpp::SubscriptionOptions();
+    imu_sub_options.callback_group = imu_group_;
+    imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>("/imu", 20, 
+                                                                std::bind(&ScenicNode::imuCallback, this, std::placeholders::_1),
+                                                                imu_sub_options);
+    
+    auto gps_sub_options = rclcpp::SubscriptionOptions();
+    gps_sub_options.callback_group = gps_group_;
+    gps_sub_ = this->create_subscription<sensor_msgs::msg::NavSatFix>("/gps", 1, 
+                                                                      std::bind(&ScenicNode::gpsCallback, this, std::placeholders::_1),
+                                                                      gps_sub_options);
+    auto img_sub_options = rclcpp::SubscriptionOptions();
+    img_sub_options.callback_group = img_group_;
+    img_sub_ = this->create_subscription<sensor_msgs::msg::Image>("/image", 1, 
+                                                                  std::bind(&ScenicNode::imageCallback, this, std::placeholders::_1),
+                                                                  img_sub_options);
+
+    txt_sub_ = this->create_subscription<scenic_msgs::msg::TextArray>("/text", 1, std::bind(&ScenicNode::textCallback, this, std::placeholders::_1));
+
+    odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/scenic/odom", 10);
+    graph_str_pub_ = this->create_publisher<std_msgs::msg::String>("scenic/graph", 10);
 }
 
 void ScenicNode::pushCallback()
@@ -43,9 +74,9 @@ void ScenicNode::pushCallback()
     //scenic_->push(image_odom_pair_.first, image_odom_pair_.second);
 }
 
-void ScenicNode::imuCallback(const sensor_msgs::msg::Imu::ConstSharePtr msg)
+void ScenicNode::imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr msg)
 {
-    LOG_FIRST_N(INFO, 1) << "[SCENICROS] Recieved IMU measurement";
+    LOG_FIRST_N(INFO, 1) << "[SCENIC] Recieved IMU measurement";
     Eigen::Vector3d gyro = ScenicROS::Conversions::rosToEigen<Eigen::Vector3d>(msg->angular_velocity);
     Eigen::Vector3d accel = ScenicROS::Conversions::rosToEigen<Eigen::Vector3d>(msg->linear_acceleration);
     Eigen::Vector4d orient = ScenicROS::Conversions::rosToEigen<Eigen::Vector4d>(msg->orientation);
@@ -56,7 +87,7 @@ void ScenicNode::imuCallback(const sensor_msgs::msg::Imu::ConstSharePtr msg)
 
 void ScenicNode::gpsCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr msg)
 {
-    LOG_FIRST_N(INFO, 1) << "[GLIDER] Recieved GPS measurement";
+    LOG_FIRST_N(INFO, 1) << "[SCENIC] Recieved GPS measurement";
     Eigen::Vector3d gps = ScenicROS::Conversions::rosToEigen<Eigen::Vector3d>(*msg);
 
     int64_t timestamp = getTime(msg->header.stamp);
@@ -68,6 +99,7 @@ void ScenicNode::gpsCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr m
 
 void ScenicNode::imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr msg)
 {
+    LOG_FIRST_N(INFO, 1) << "[SCENIC] Recieved Image";
     if (!current_state_.isInitialized()) return;
     cv::Mat image = ScenicROS::Conversions::rosToImage(msg);
     
@@ -77,9 +109,18 @@ void ScenicNode::imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr msg
     image_odom_pair_ = std::make_pair(image, odom);
 }
 
-void ScenicNode::compressedImageCallback(const sensor_msgs::msg::CompressedImage::ConstSharedPtr msg)
+void ScenicNode::textCallback(const scenic_msgs::msg::TextArray::ConstSharedPtr msg)
 {
-    // do I need this
+    std::vector<scenic_msgs::msg::Text> classes = msg->classes;
+    std::vector<Scenic::Text> texts; 
+    for (const Text& class : classes) {
+        Scenic::Text t(class.label,
+                       static_cast<Scenic::GraphLevel>(class.level),
+                       static_cast<Scenic::RegionPriorty>(class.priority));
+        texts.push_back(t);
+    }
+
+    scenic->setText(texts);
 }
 
 int64_t ScenicNode::getTime(const builtin_interfaces::msg::Time& stamp) const
@@ -102,3 +143,4 @@ void ScenicNode::publishGraph() const
     // need
 }
 
+RCLCPP_COMPONENTS_REGISTER_NODE(ScenicROS::ScenicNode)

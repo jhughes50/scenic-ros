@@ -5,7 +5,7 @@
 * convert between ros and eigen
 */
 
-#include "scencic_ros/conversions.hpp"
+#include "scenic_ros/conversions.hpp"
 
 using namespace ScenicROS;
 
@@ -355,7 +355,8 @@ cv::Mat Conversions::rosToImage(const sensor_msgs::msg::Image::ConstSharedPtr ms
 
 sensor_msgs::msg::Image Conversions::imageToRos(const cv::Mat& img)
 {
-    return sensor_msgs::msg::Image;
+    sensor_msgs::msg::Image msg;
+    return msg;
 }
 
 template Eigen::Vector3d Conversions::rosToEigen<Eigen::Vector3d>(const geometry_msgs::msg::Vector3& msg);
