@@ -20,7 +20,7 @@ ScenicNode::ScenicNode(const rclcpp::NodeOptions& options) : Node("scenic_node")
 
     declare_parameter("subscribers.use_odom", false);
 
-    declare_parameter("path", "");
+    declare_parameter("glider_path", "");
 
     // Get parameters
     freq_ = this->get_parameter("publishers.rate").as_double();
@@ -66,12 +66,27 @@ ScenicNode::ScenicNode(const rclcpp::NodeOptions& options) : Node("scenic_node")
     txt_sub_ = this->create_subscription<scenic_msgs::msg::TextArray>("/text", 1, std::bind(&ScenicNode::textCallback, this, std::placeholders::_1));
 
     odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/scenic/odom", 10);
-    graph_str_pub_ = this->create_publisher<std_msgs::msg::String>("scenic/graph", 10);
+    graph_str_pub_ = this->create_publisher<std_msgs::msg::String>("/scenic/graph/string", 10);
+    graph_img_pub_ = this->create_publisher<sensor_msgs::msg::Image>("/scenic/graph/image", 1);
+
+    std::chrono::milliseconds d = ScenicROS::Conversions::hzToDuration(1.0);
+    timer_ = this->create_wall_timer(d, std::bind(&ScenicNode::pushCallback, this));
 }
 
 void ScenicNode::pushCallback()
 {
-    //scenic_->push(image_odom_pair_.first, image_odom_pair_.second);
+    if (scenic_->isInitialized() && current_state_.isInitialized()) {
+        // send the most recent image-odom pair to processors
+        LOG(INFO) << "pushing image odom pair" << std::endl;
+        scenic_->push(image_odom_pair_.first, image_odom_pair_.second);
+
+        // check if a new graph came out of the processors
+        if (scenic_->isNewGraph()) {
+            cv::Mat img = scenic_->getGraphImage();
+            sensor_msgs::msg::Image::SharedPtr msg = ScenicROS::Conversions::imageToRos(img);
+            graph_img_pub_->publish(*msg);
+        }
+    }
 }
 
 void ScenicNode::imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr msg)
@@ -102,7 +117,8 @@ void ScenicNode::imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr msg
     LOG_FIRST_N(INFO, 1) << "[SCENIC] Recieved Image";
     if (!current_state_.isInitialized()) return;
     cv::Mat image = ScenicROS::Conversions::rosToImage(msg);
-    
+    cv::resize(image, image, cv::Size(), 0.25, 0.25);
+
     int64_t timestamp = getTime(msg->header.stamp);
     Glider::Odometry odom = glider_->interpolate(timestamp);
 
@@ -113,14 +129,14 @@ void ScenicNode::textCallback(const scenic_msgs::msg::TextArray::ConstSharedPtr 
 {
     std::vector<scenic_msgs::msg::Text> classes = msg->classes;
     std::vector<Scenic::Text> texts; 
-    for (const Text& class : classes) {
-        Scenic::Text t(class.label,
-                       static_cast<Scenic::GraphLevel>(class.level),
-                       static_cast<Scenic::RegionPriorty>(class.priority));
+    for (const scenic_msgs::msg::Text& txt_msg : classes) {
+        Scenic::Text t(txt_msg.label,
+                       static_cast<Scenic::GraphLevel>(txt_msg.level),
+                       static_cast<Scenic::RegionPriority>(txt_msg.priority));
         texts.push_back(t);
     }
 
-    scenic->setText(texts);
+    scenic_->setText(texts);
 }
 
 int64_t ScenicNode::getTime(const builtin_interfaces::msg::Time& stamp) const

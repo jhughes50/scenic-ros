@@ -21,6 +21,7 @@ find_package(OpenCV REQUIRED)
 
 find_package(glider REQUIRED)
 find_package(scenic REQUIRED)
+find_package(scenic_msgs REQUIRED)
 
 set(node_plugins "")
 
@@ -51,6 +52,7 @@ ament_target_dependencies(${PROJECT_NAME}
   sensor_msgs
   geometry_msgs
   nav_msgs
+  scenic_msgs
 )
 
 add_executable(${PROJECT_NAME}_node

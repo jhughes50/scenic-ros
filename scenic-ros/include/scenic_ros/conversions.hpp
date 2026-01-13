@@ -46,7 +46,7 @@ class Conversions
         static void addCovariance(const Glider::OdometryWithCovariance& odom_wc, T& msg);
 
         static cv::Mat rosToImage(const sensor_msgs::msg::Image::ConstSharedPtr msg);
-        static sensor_msgs::msg::Image imageToRos(const cv::Mat& img);
+        static sensor_msgs::msg::Image::SharedPtr imageToRos(const cv::Mat& img);
 
         static std::chrono::milliseconds hzToDuration(const double freq);
 

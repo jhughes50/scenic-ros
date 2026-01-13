@@ -21,8 +21,8 @@
 #include <glider/core/odometry_with_covariance.hpp>
 
 #include <scenic/core/scenic.hpp>
-#include <scenic/core/text.msg>
-#include <scenic_msgs/msg/text_array.msg>
+#include <scenic_msgs/msg/text.hpp>
+#include <scenic_msgs/msg/text_array.hpp>
 
 
 #include "scenic_ros/conversions.hpp"
@@ -46,7 +46,7 @@ class ScenicNode : public rclcpp::Node
         void gpsCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr msg);
         void imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr msg);
         void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr msg);
-        void textCallback(const scencic_msgs::msg::TextArray::ConstSharedPtr msg);
+        void textCallback(const scenic_msgs::msg::TextArray::ConstSharedPtr msg);
 
         // utility functions
         int64_t getTime(const builtin_interfaces::msg::Time& stamp) const;
@@ -70,6 +70,7 @@ class ScenicNode : public rclcpp::Node
         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_viz_pub_;
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr graph_str_pub_;
+        rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr graph_img_pub_;
 
         // timers
         rclcpp::TimerBase::SharedPtr timer_;

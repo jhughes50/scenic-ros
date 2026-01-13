@@ -349,13 +349,29 @@ void Conversions::addCovariance(const Glider::OdometryWithCovariance& odom_wc, T
 
 cv::Mat Conversions::rosToImage(const sensor_msgs::msg::Image::ConstSharedPtr msg)
 {
-    cv::Mat image(msg->height, msg->width, CV_8UC3, const_cast<uint8_t*>(msg->data.data()), msg->step);
-    return image.clone();
+    cv::Mat bayer(msg->height, msg->width, CV_8UC1, const_cast<uint8_t*>(msg->data.data()), msg->step);
+    cv::Mat bgr;
+    cv::cvtColor(bayer, bgr, cv::COLOR_BayerRG2BGR);
+    return bgr.clone();
 }
 
-sensor_msgs::msg::Image Conversions::imageToRos(const cv::Mat& img)
+sensor_msgs::msg::Image::SharedPtr Conversions::imageToRos(const cv::Mat& img)
 {
-    sensor_msgs::msg::Image msg;
+    sensor_msgs::msg::Image::SharedPtr msg = std::make_shared<sensor_msgs::msg::Image>();
+
+    msg->header.frame_id = "image";
+
+    msg->height = img.rows;
+    msg->width = img.cols;
+    msg->encoding = "bgr8";
+
+    msg->step = img.step[0];
+    msg->is_bigendian = false;
+
+    size_t data_size = img.step[0] * img.rows;
+    msg->data.resize(data_size);
+    std::memcpy(msg->data.data(), img.data, data_size);
+
     return msg;
 }
 
