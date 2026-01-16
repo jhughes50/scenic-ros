@@ -19,7 +19,6 @@ find_package(nav_msgs REQUIRED)
 find_package(GTSAM REQUIRED)
 find_package(OpenCV REQUIRED)
 
-find_package(glider REQUIRED)
 find_package(scenic REQUIRED)
 find_package(scenic_msgs REQUIRED)
 
@@ -42,7 +41,6 @@ target_link_libraries(${PROJECT_NAME}
   gtsam
   Eigen3::Eigen
   ${OpenCV_LIBRARIES}
-  glider::glider
   scenic::scenic
 )
 

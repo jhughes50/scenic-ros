@@ -71,21 +71,30 @@ ScenicNode::ScenicNode(const rclcpp::NodeOptions& options) : Node("scenic_node")
 
     std::chrono::milliseconds d = ScenicROS::Conversions::hzToDuration(1.0);
     timer_ = this->create_wall_timer(d, std::bind(&ScenicNode::pushCallback, this));
+    std::chrono::milliseconds vd = ScenicROS::Conversions::hzToDuration(5.0);
+    vo_timer_ = this->create_wall_timer(vd, std::bind(&ScenicNode::pushVoCallback, this));
 }
 
 void ScenicNode::pushCallback()
 {
     if (scenic_->isInitialized() && current_state_.isInitialized()) {
         // send the most recent image-odom pair to processors
-        LOG(INFO) << "pushing image odom pair" << std::endl;
-        scenic_->push(image_odom_pair_.first, image_odom_pair_.second);
-
+        LOG(INFO) << "[SCENIC] Pushing image odom pair" << std::endl;
+        //scenic_->push(image_odom_pair_.first, image_odom_pair_.second);
+        scenic_->addImage(image_stamped_.stampd, image_stamped_.stampi, image_stamped_.image);
         // check if a new graph came out of the processors
         if (scenic_->isNewGraph()) {
             cv::Mat img = scenic_->getGraphImage();
             sensor_msgs::msg::Image::SharedPtr msg = ScenicROS::Conversions::imageToRos(img);
             graph_img_pub_->publish(*msg);
         }
+    }
+}
+
+void ScenicNode::pushVoCallback()
+{  
+    if (img_initialized_ && !image_stamped_.image.empty()) {
+        scenic_->addVoImage(image_stamped_.stampd, image_stamped_.stampi, image_stamped_.image);
     }
 }
 
@@ -115,14 +124,19 @@ void ScenicNode::gpsCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr m
 void ScenicNode::imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr msg)
 {
     LOG_FIRST_N(INFO, 1) << "[SCENIC] Recieved Image";
-    if (!current_state_.isInitialized()) return;
+    //if (!current_state_.isInitialized()) return;
+    img_initialized_ = true;
+    rclcpp::Time t = rclcpp::Time(msg->header.stamp);
     cv::Mat image = ScenicROS::Conversions::rosToImage(msg);
     cv::resize(image, image, cv::Size(), 0.25, 0.25);
 
-    int64_t timestamp = getTime(msg->header.stamp);
-    Glider::Odometry odom = glider_->interpolate(timestamp);
+    //int64_t timestamp = getTime(msg->header.stamp);
+    //Glider::Odometry odom = glider_->interpolate(timestamp);
 
-    image_odom_pair_ = std::make_pair(image, odom);
+    //image_odom_pair_ = std::make_pair(image, odom);
+    image_stamped_.image = image;
+    image_stamped_.stampd = t.seconds();
+    image_stamped_.stampi = getTime(msg->header.stamp);
 }
 
 void ScenicNode::textCallback(const scenic_msgs::msg::TextArray::ConstSharedPtr msg)

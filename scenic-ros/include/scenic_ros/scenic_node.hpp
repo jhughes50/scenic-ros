@@ -41,6 +41,7 @@ class ScenicNode : public rclcpp::Node
     
         // timer callbacks 
         void pushCallback();
+        void pushVoCallback();
 
         // subscriber callbacks
         void gpsCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr msg);
@@ -74,9 +75,11 @@ class ScenicNode : public rclcpp::Node
 
         // timers
         rclcpp::TimerBase::SharedPtr timer_;
+        rclcpp::TimerBase::SharedPtr vo_timer_;
 
         // parameters
-        bool initialized_;
+        bool initialized_{false};
+        bool img_initialized_{false};
         bool publish_nsf_;
         bool viz_;
         std::string utm_zone_;
@@ -87,5 +90,6 @@ class ScenicNode : public rclcpp::Node
         // tracker
         Glider::OdometryWithCovariance current_state_;
         std::pair<cv::Mat, Glider::Odometry> image_odom_pair_;
+        Scenic::ImageStamped image_stamped_;
 };
 }

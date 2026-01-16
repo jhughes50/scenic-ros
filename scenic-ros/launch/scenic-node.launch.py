@@ -26,8 +26,8 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time')
     
     # Path to parameter files
-    ros_params_file = "/usr/local/share/glider/config/ros-params.yaml" 
-    graph_params_file = "/usr/local/share/glider/config/glider-params.yaml"
+    ros_params_file = "/usr/local/share/scenic/config/ros-params.yaml" 
+    graph_params_file = "/usr/local/share/scenic/config/glider-params.yaml"
 
     # create logging directory
     with open(graph_params_file) as f:
