@@ -36,7 +36,6 @@ class ScenicNode : public rclcpp::Node
         ScenicNode(const rclcpp::NodeOptions& options);
 
     private:
-        std::unique_ptr<Glider::Glider> glider_;
         std::unique_ptr<Scenic::Scenic> scenic_;
     
         // timer callbacks 
@@ -52,6 +51,7 @@ class ScenicNode : public rclcpp::Node
         // utility functions
         int64_t getTime(const builtin_interfaces::msg::Time& stamp) const;
         void publishOdometry(Glider::Odometry& odom) const;
+        void publishOdometry(Glider::OdometryWithCovariance& odom) const;
         void publishOdometryViz(nav_msgs::msg::Odometry viz_msg) const;
         void publishGraph() const;
 
@@ -88,6 +88,7 @@ class ScenicNode : public rclcpp::Node
         double freq_;
 
         // tracker
+        int img_counter_{0};
         Glider::OdometryWithCovariance current_state_;
         std::pair<cv::Mat, Glider::Odometry> image_odom_pair_;
         Scenic::ImageStamped image_stamped_;

@@ -26,16 +26,14 @@ ScenicNode::ScenicNode(const rclcpp::NodeOptions& options) : Node("scenic_node")
     freq_ = this->get_parameter("publishers.rate").as_double();
 
     publish_nsf_ = this->get_parameter("publishers.nav_sat_fix").as_bool();
-    viz_ = this->get_parameter("publishers.viz.use").as_bool();
-    origin_easting_ = this->get_parameter("publishers.viz.origin_easting").as_double();
-    origin_northing_ = this->get_parameter("publishers.viz.origin_northing").as_double();
+    viz_ = true; //this->get_parameter("publishers.viz.use").as_bool();
+    origin_easting_ = 482942.0998531349; //this->get_parameter("publishers.viz.origin_easting").as_double();
+    origin_northing_ = 4421353.329070162; // this->get_parameter("publishers.viz.origin_northing").as_double();
 
     bool use_odom = this->get_parameter("subscribers.use_odom").as_bool();
     
     std::string glider_path = this->get_parameter("glider_path").as_string();
 
-    // initialize glider
-    glider_ = std::make_unique<Glider::Glider>(glider_path);
     // initialize scenic
     scenic_ = std::make_unique<Scenic::Scenic>(10, "/home/jason/clipper/models", "/home/jason/clipper/config");
     // TODO initialize scenic as a unique ptr
@@ -66,36 +64,39 @@ ScenicNode::ScenicNode(const rclcpp::NodeOptions& options) : Node("scenic_node")
     txt_sub_ = this->create_subscription<scenic_msgs::msg::TextArray>("/text", 1, std::bind(&ScenicNode::textCallback, this, std::placeholders::_1));
 
     odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/scenic/odom", 10);
+    odom_viz_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/scenic/odom/viz", 10);
     graph_str_pub_ = this->create_publisher<std_msgs::msg::String>("/scenic/graph/string", 10);
     graph_img_pub_ = this->create_publisher<sensor_msgs::msg::Image>("/scenic/graph/image", 1);
 
-    std::chrono::milliseconds d = ScenicROS::Conversions::hzToDuration(1.0);
-    timer_ = this->create_wall_timer(d, std::bind(&ScenicNode::pushCallback, this));
     std::chrono::milliseconds vd = ScenicROS::Conversions::hzToDuration(5.0);
-    vo_timer_ = this->create_wall_timer(vd, std::bind(&ScenicNode::pushVoCallback, this));
+    vo_timer_ = this->create_wall_timer(vd, std::bind(&ScenicNode::pushCallback, this));
 }
 
 void ScenicNode::pushCallback()
 {
     if (scenic_->isInitialized() && current_state_.isInitialized()) {
         // send the most recent image-odom pair to processors
-        LOG(INFO) << "[SCENIC] Pushing image odom pair" << std::endl;
-        //scenic_->push(image_odom_pair_.first, image_odom_pair_.second);
-        scenic_->addImage(image_stamped_.stampd, image_stamped_.stampi, image_stamped_.image);
-        // check if a new graph came out of the processors
-        if (scenic_->isNewGraph()) {
-            cv::Mat img = scenic_->getGraphImage();
-            sensor_msgs::msg::Image::SharedPtr msg = ScenicROS::Conversions::imageToRos(img);
-            graph_img_pub_->publish(*msg);
+        //LOG(INFO) << "[SCENIC] Pushing image odom pair" << std::endl;
+        if (img_counter_ > 0 && img_counter_ % 5 == 0) {
+            scenic_->addImage(image_stamped_.stampd, image_stamped_.stampi, image_stamped_.image, true);
+        } else {
+            scenic_->addImage(image_stamped_.stampd, image_stamped_.stampi, image_stamped_.image, false);
         }
+        // check if a new graph came out of the processors
+        //if (scenic_->isNewGraph()) {
+        //    cv::Mat img = scenic_->getGraphImage();
+        //    sensor_msgs::msg::Image::SharedPtr msg = ScenicROS::Conversions::imageToRos(img);
+        //    graph_img_pub_->publish(*msg);
+        //}
     }
 }
 
 void ScenicNode::pushVoCallback()
-{  
-    if (img_initialized_ && !image_stamped_.image.empty()) {
-        scenic_->addVoImage(image_stamped_.stampd, image_stamped_.stampi, image_stamped_.image);
-    }
+{ 
+    // DEPRICATED
+    //if (img_initialized_ && !image_stamped_.image.empty() && current_state_.isInitialized()) {
+    //    scenic_->addImage(image_stamped_.stampd, image_stamped_.stampi, image_stamped_.image);
+    //}
 }
 
 void ScenicNode::imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr msg)
@@ -106,7 +107,7 @@ void ScenicNode::imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr msg)
     Eigen::Vector4d orient = ScenicROS::Conversions::rosToEigen<Eigen::Vector4d>(msg->orientation);
     int64_t timestamp = getTime(msg->header.stamp);
 
-    glider_->addImu(timestamp, accel, gyro, orient);
+    scenic_->addIMU(timestamp, accel, gyro, orient);
 }
 
 void ScenicNode::gpsCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr msg)
@@ -116,9 +117,8 @@ void ScenicNode::gpsCallback(const sensor_msgs::msg::NavSatFix::ConstSharedPtr m
 
     int64_t timestamp = getTime(msg->header.stamp);
 
-    glider_->addGps(timestamp, gps);
-
-    current_state_ = glider_->optimize(timestamp);
+    current_state_ = scenic_->addGPS(timestamp, gps);
+    publishOdometry(current_state_);
 }
 
 void ScenicNode::imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr msg)
@@ -159,13 +159,28 @@ int64_t ScenicNode::getTime(const builtin_interfaces::msg::Time& stamp) const
 }
 
 void ScenicNode::publishOdometry(Glider::Odometry& odom) const
-{   
+{  
     // nice to have
+}
+
+void ScenicNode::publishOdometry(Glider::OdometryWithCovariance& odom) const 
+{
+    LOG_FIRST_N(INFO, 1) << "[ROS] Publishing Odometry from Optimizer";
+    nav_msgs::msg::Odometry msg = ScenicROS::Conversions::odomToRos<nav_msgs::msg::Odometry>(odom);
+    odom_pub_->publish(msg);
+    if (viz_) {
+        publishOdometryViz(msg);
+    }
 }
 
 void ScenicNode::publishOdometryViz(nav_msgs::msg::Odometry viz_msg) const
 {
-    // nice to have
+    double x = viz_msg.pose.pose.position.x - origin_easting_;
+    double y = viz_msg.pose.pose.position.y - origin_northing_;
+    viz_msg.pose.pose.position.x = x;
+    viz_msg.pose.pose.position.y = y;
+
+    odom_viz_pub_->publish(viz_msg);
 }
 
 void ScenicNode::publishGraph() const
