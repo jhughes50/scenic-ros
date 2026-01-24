@@ -16,7 +16,9 @@ find_package(rclcpp_components REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(GTSAM REQUIRED)
+find_package(TBB REQUIRED)
 find_package(OpenCV REQUIRED)
 
 find_package(scenic REQUIRED)
@@ -50,6 +52,7 @@ ament_target_dependencies(${PROJECT_NAME}
   sensor_msgs
   geometry_msgs
   nav_msgs
+  visualization_msgs
   scenic_msgs
 )
 

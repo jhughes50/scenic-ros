@@ -37,7 +37,7 @@ class ScenicNode : public rclcpp::Node
 
     private:
         std::unique_ptr<Scenic::Scenic> scenic_;
-    
+        std::shared_ptr<Scenic::Graph> graph_; 
         // timer callbacks 
         void pushCallback();
         void pushVoCallback();
@@ -53,7 +53,8 @@ class ScenicNode : public rclcpp::Node
         void publishOdometry(Glider::Odometry& odom) const;
         void publishOdometry(Glider::OdometryWithCovariance& odom) const;
         void publishOdometryViz(nav_msgs::msg::Odometry viz_msg) const;
-        void publishGraph() const;
+        void publishVisualOdometry(Glider::Odometry& odom) const;    
+        void publishGraphViz() const;
 
         // subscriptions
         rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::ConstSharedPtr gps_sub_;
@@ -70,8 +71,10 @@ class ScenicNode : public rclcpp::Node
         // publishers 
         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_viz_pub_;
+        rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr vo_pub_;
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr graph_str_pub_;
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr graph_img_pub_;
+        rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr graph_viz_pub_;
 
         // timers
         rclcpp::TimerBase::SharedPtr timer_;
@@ -83,8 +86,7 @@ class ScenicNode : public rclcpp::Node
         bool publish_nsf_;
         bool viz_;
         std::string utm_zone_;
-        double origin_easting_;
-        double origin_northing_;
+        Scenic::UTMPoint origin_;
         double freq_;
 
         // tracker

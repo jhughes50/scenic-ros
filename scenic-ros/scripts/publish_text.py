@@ -27,7 +27,7 @@ class TextPublisherNode(Node):
 
         objmsg = Text()
 
-        objmsg.label = "car"
+        objmsg.label = "black car"
         objmsg.level = 0 
         objmsg.priority = 3
 

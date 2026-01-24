@@ -351,28 +351,125 @@ cv::Mat Conversions::rosToImage(const sensor_msgs::msg::Image::ConstSharedPtr ms
 {
     cv::Mat bayer(msg->height, msg->width, CV_8UC1, const_cast<uint8_t*>(msg->data.data()), msg->step);
     cv::Mat bgr;
-    cv::cvtColor(bayer, bgr, cv::COLOR_BayerRG2BGR);
+    cv::cvtColor(bayer, bgr, cv::COLOR_BayerRG2RGB);
     return bgr.clone();
 }
 
-sensor_msgs::msg::Image::SharedPtr Conversions::imageToRos(const cv::Mat& img)
+sensor_msgs::msg::Image Conversions::imageToRos(const cv::Mat& img)
 {
-    sensor_msgs::msg::Image::SharedPtr msg = std::make_shared<sensor_msgs::msg::Image>();
+    sensor_msgs::msg::Image msg;
 
-    msg->header.frame_id = "image";
+    msg.header.frame_id = "image";
 
-    msg->height = img.rows;
-    msg->width = img.cols;
-    msg->encoding = "bgr8";
+    msg.height = img.rows;
+    msg.width = img.cols;
+    msg.encoding = "bgr8";
 
-    msg->step = img.step[0];
-    msg->is_bigendian = false;
+    msg.step = img.step[0];
+    msg.is_bigendian = false;
 
     size_t data_size = img.step[0] * img.rows;
-    msg->data.resize(data_size);
-    std::memcpy(msg->data.data(), img.data, data_size);
+    msg.data.resize(data_size);
+    std::memcpy(msg.data.data(), img.data, data_size);
 
     return msg;
+}
+
+std::vector<visualization_msgs::msg::Marker> Conversions::visualizeGraph(const std::shared_ptr<Scenic::Graph>& graph, const Scenic::UTMPoint& origin)
+{
+    std::vector<visualization_msgs::msg::Marker> msgs;
+
+    // Region Nodes
+    visualization_msgs::msg::Marker region_points;
+    region_points.header = getHeader(0, "enu");
+    region_points.ns = "region_points";
+    region_points.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+    region_points.action = visualization_msgs::msg::Marker::ADD;
+    region_points.scale.x = 0.4;
+    region_points.scale.y = 0.4;
+    region_points.scale.z = 0.4;
+
+    region_points.id = 0;
+    region_points.color.r = 0.0;
+    region_points.color.g = 0.25;
+    region_points.color.b = 0.75;
+    region_points.color.a = 1.0;
+    for (const std::shared_ptr<Scenic::Node>& node : graph->getRegionNodes()) {
+        geometry_msgs::msg::Point p;
+        Scenic::UTMPoint node_pos = node->getUtmCoordinate();
+        p.x = node_pos.easting - origin.easting;
+        p.y = node_pos.northing - origin.northing;
+        p.z = 5.0;
+        region_points.points.push_back(p);
+    }
+    msgs.push_back(region_points);
+
+    // Object Nodes
+    visualization_msgs::msg::Marker object_points; 
+    object_points.header = getHeader(0, "enu");
+    object_points.ns = "object_points";
+    object_points.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+    object_points.action = visualization_msgs::msg::Marker::ADD;
+    object_points.scale.x = 0.4;
+    object_points.scale.y = 0.4;
+    object_points.scale.z = 0.4;
+
+    object_points.id = 1;
+    object_points.color.r = 0.0;
+    object_points.color.g = 0.75;
+    object_points.color.b = 0.25;
+    object_points.color.a = 1.0;
+    for (const std::shared_ptr<Scenic::Node>& node : graph->getObjectNodes()) {
+        geometry_msgs::msg::Point p;
+        Scenic::UTMPoint node_pos = node->getUtmCoordinate();
+        p.x = node_pos.easting - origin.easting;
+        p.y = node_pos.northing - origin.northing;
+        p.z = 0.0;
+        object_points.points.push_back(p);
+    }
+    msgs.push_back(object_points);
+
+    // getEdges
+    visualization_msgs::msg::Marker edges;
+    edges.header = getHeader(0, "enu");
+    edges.ns = "edges";
+    edges.id = 0;
+    edges.type = visualization_msgs::msg::Marker::LINE_LIST;
+    edges.action = visualization_msgs::msg::Marker::ADD;
+    edges.scale.x = 0.05;  // Line width
+    edges.color.r = 1.0;
+    edges.color.g = 1.0;
+    edges.color.b = 0.0;
+    edges.color.a = 1.0;
+    for (const auto& [nodes, edge] : graph->getEdges()) {
+        std::pair<std::shared_ptr<Scenic::Node>, std::shared_ptr<Scenic::Node>> node_pair = edge->getNodePair();
+        
+        geometry_msgs::msg::Point p1;
+        Scenic::UTMPoint pos1 = node_pair.first->getUtmCoordinate();
+        p1.x = pos1.easting - origin.easting;
+        p1.y = pos1.northing - origin.northing;
+        if (node_pair.first->getNodeLevel() == Scenic::GraphLevel::REGION) {
+            p1.z = 5.0;
+        } else {
+            p1.z = 0.0;
+        }
+
+        geometry_msgs::msg::Point p2;
+        Scenic::UTMPoint pos2 = node_pair.second->getUtmCoordinate();
+        p2.x = pos2.easting - origin.easting;
+        p2.y = pos2.northing - origin.northing;
+        if (node_pair.second->getNodeLevel() == Scenic::GraphLevel::REGION) {
+            p2.z = 5.0;
+        } else {
+            p2.z = 0.0;
+        }
+
+        edges.points.push_back(p1);
+        edges.points.push_back(p2);
+    }
+    msgs.push_back(edges);
+
+    return msgs;
 }
 
 template Eigen::Vector3d Conversions::rosToEigen<Eigen::Vector3d>(const geometry_msgs::msg::Vector3& msg);

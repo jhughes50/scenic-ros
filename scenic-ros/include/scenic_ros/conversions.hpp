@@ -6,6 +6,7 @@
 */
 
 #include <chrono>
+
 #include <geometry_msgs/msg/quaternion.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -16,12 +17,17 @@
 #include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <std_msgs/msg/header.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <geometry_msgs/msg/point.hpp>
+#include <std_msgs/msg/color_rgba.hpp>
 #include <builtin_interfaces/msg/time.hpp>
+
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
 
-#include "glider/core/odometry.hpp"
-#include "glider/core/odometry_with_covariance.hpp"
+#include <glider/core/odometry.hpp>
+#include <glider/core/odometry_with_covariance.hpp>
+#include <scenic/graphing/graph.hpp>
 
 namespace ScenicROS
 {
@@ -46,9 +52,11 @@ class Conversions
         static void addCovariance(const Glider::OdometryWithCovariance& odom_wc, T& msg);
 
         static cv::Mat rosToImage(const sensor_msgs::msg::Image::ConstSharedPtr msg);
-        static sensor_msgs::msg::Image::SharedPtr imageToRos(const cv::Mat& img);
+        static sensor_msgs::msg::Image imageToRos(const cv::Mat& img);
 
         static std::chrono::milliseconds hzToDuration(const double freq);
+
+        static std::vector<visualization_msgs::msg::Marker> visualizeGraph(const std::shared_ptr<Scenic::Graph>& graph, const Scenic::UTMPoint& origin);
 
     private:
         
