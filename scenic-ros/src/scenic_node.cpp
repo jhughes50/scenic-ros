@@ -36,8 +36,8 @@ ScenicNode::ScenicNode(const rclcpp::NodeOptions& options) : Node("scenic_node")
 
     // initialize scenic
     scenic_ = std::make_unique<Scenic::Scenic>(10, "/home/jason/clipper/models", "/home/jason/clipper/config");
-    // TODO initialize scenic as a unique ptr
     current_state_ = Glider::OdometryWithCovariance::Uninitialized();
+    scenic_->setOrigin(origin_.easting, origin_.northing);
 
     imu_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
     gps_group_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -82,31 +82,16 @@ void ScenicNode::pushCallback()
         if (graph_) {
             publishGraphViz();
             cv::Mat img = scenic_->getGraphImage();
+            std::string jsons = scenic_->exportToJsonFormat<std::string>(*graph_);
             sensor_msgs::msg::Image msg = ScenicROS::Conversions::imageToRos(img);
             graph_img_pub_->publish(msg);
+            std_msgs::msg::String strmsg = ScenicROS::Conversions::stringToRos(jsons);
+            graph_str_pub_->publish(strmsg);
         }
     }
     if (img_initialized_ && !image_stamped_.image.empty() && current_state_.isInitialized() && scenic_->isInitialized()) {
         scenic_->push(image_stamped_.stampi, image_stamped_.image);
     }
-    //if (scenic_->isInitialized() && current_state_.isInitialized()) {
-    //    scenic_->addImage(image_stamped_.stampd, image_stamped_.stampi, image_stamped_.image, true);
-        // send the most recent image-odom pair to processors
-        //LOG(INFO) << "[SCENIC] Pushing image odom pair" << std::endl;
-        //if (img_counter_ > 0 && img_counter_ % 10 == 0) {
-        //    scenic_->addImage(image_stamped_.stampd, image_stamped_.stampi, image_stamped_.image, true);
-        //} else {
-        //    scenic_->addImage(image_stamped_.stampd, image_stamped_.stampi, image_stamped_.image, false);
-        //}
-        //Glider::Odometry vo = scenic_->getVisualOdometry();
-        //publishVisualOdometry(vo);
-        // check if a new graph came out of the processors
-        //if (scenic_->isNewGraph()) {
-        //    cv::Mat img = scenic_->getGraphImage();
-        //    sensor_msgs::msg::Image::SharedPtr msg = ScenicROS::Conversions::imageToRos(img);
-        //    graph_img_pub_->publish(*msg);
-        //}
-    //}
 }
 
 void ScenicNode::pushVoCallback()

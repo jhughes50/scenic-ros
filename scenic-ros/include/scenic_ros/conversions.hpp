@@ -20,6 +20,7 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include <std_msgs/msg/color_rgba.hpp>
+#include <std_msgs/msg/string.hpp>
 #include <builtin_interfaces/msg/time.hpp>
 
 #include <Eigen/Dense>
@@ -57,6 +58,7 @@ class Conversions
         static std::chrono::milliseconds hzToDuration(const double freq);
 
         static std::vector<visualization_msgs::msg::Marker> visualizeGraph(const std::shared_ptr<Scenic::Graph>& graph, const Scenic::UTMPoint& origin);
+        static std_msgs::msg::String stringToRos(const std::string& str);
 
     private:
         

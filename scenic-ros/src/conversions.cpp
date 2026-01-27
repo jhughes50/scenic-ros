@@ -472,6 +472,14 @@ std::vector<visualization_msgs::msg::Marker> Conversions::visualizeGraph(const s
     return msgs;
 }
 
+std_msgs::msg::String Conversions::stringToRos(const std::string& str)
+{
+    std_msgs::msg::String msg;
+    msg.data = str;
+
+    return msg;
+}
+
 template Eigen::Vector3d Conversions::rosToEigen<Eigen::Vector3d>(const geometry_msgs::msg::Vector3& msg);
 template Eigen::Vector3d Conversions::rosToEigen<Eigen::Vector3d>(const sensor_msgs::msg::NavSatFix& msg);
 template Eigen::Vector4d Conversions::rosToEigen<Eigen::Vector4d>(const geometry_msgs::msg::Quaternion& msg);
